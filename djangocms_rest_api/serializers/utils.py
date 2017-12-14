@@ -8,7 +8,7 @@ from django.utils.translation import get_language_from_request
 class RequestSerializer(object):
     @property
     def request(self):
-        return self._context['request']
+        return self.context['request']
 
     @property
     def language(self):

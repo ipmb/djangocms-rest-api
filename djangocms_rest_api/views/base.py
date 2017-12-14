@@ -8,23 +8,33 @@ from rest_framework import mixins
 from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.pagination import PageNumberPagination
 
 from djangocms_rest_api.serializers import (
-    PageSerializer, PlaceHolderSerializer, BasePluginSerializer, get_serializer_class
+    PageSerializer, PlaceHolderSerializer, BasePluginSerializer,
+    LightPageSerializer, get_serializer_class
 )
 from djangocms_rest_api.views.utils import check_if_page_is_visible
+
+
+class Pagination(PageNumberPagination):
+    page_size = 50
 
 
 class PageViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PageSerializer
     queryset = Page.objects.all()
+    permissions_classes = [IsAuthenticatedOrReadOnly]
+    pagination_class = Pagination
+
+    def list(self, request):
+        self.serializer_class = LightPageSerializer
+        return super(PageViewSet, self).list(request)
 
     def get_queryset(self):
         site = get_current_site(self.request)
-        if self.request.user.is_staff:
-            return Page.objects.drafts().on_site(site=site).distinct()
-        else:
-            return Page.objects.public().on_site(site=site).distinct()
+        return Page.objects.public().published(site=site).distinct()
 
 
 class PlaceHolderViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
@@ -34,6 +44,7 @@ class PlaceHolderViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     queryset = Placeholder.objects.all()
     serializer_class = PlaceHolderSerializer
     parser_classes = (JSONParser, FormParser, MultiPartParser)
+    permissions_classes = [IsAuthenticatedOrReadOnly]
 
     def get_object(self):
         obj = super(PlaceHolderViewSet, self).get_object()
@@ -52,6 +63,7 @@ class PluginViewSet(mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """
     serializer_class = BasePluginSerializer
     queryset = CMSPlugin.objects.all()
+    permissions_classes = [IsAuthenticatedOrReadOnly]
 
     def get_object(self):
         obj = super(PluginViewSet, self).get_object()
